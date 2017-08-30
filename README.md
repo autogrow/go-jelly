@@ -21,9 +21,9 @@ You can see some usage examples in examples directory:
 ## TODO
 
 - [x] add Autogrow MyData client
-- [] fix CloudFront breakage of MyData client
+- [ ] fix CloudFront breakage of MyData client
 - [x] add IntelliDose support through IntelliLink
-- [] add IntelliClimate support through IntelliLink
-- [] add IntelliGrow online client so IntelliLink is not needed
-- [] add Heliospectre light support
-- [] port to Python (jellypy)
+- [ ] add IntelliClimate support through IntelliLink
+- [ ] add IntelliGrow online client so IntelliLink is not needed
+- [ ] add Heliospectre light support
+- [ ] port to Python (jellypy)
