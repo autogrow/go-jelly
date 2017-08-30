@@ -18,10 +18,32 @@ Install as you would any go library:
 
 ## Usage
 
-You can see some usage examples in examples directory:
+Basic usage would be like so:
 
-- **daynightonoff.go**: send a push notification when an IntelliDose transitions from day to night (or vice versa)
-- **printreadings.go**: print readings to the terminal every time they change
+```go
+import "github.com/AutogrowSystems/go-jelly/sfc"
+
+// connect to the IntelliDose on the IntelliLink
+idose := sfc.NewIntelliDose(sn)
+err := sfc.ConnectToNATS(idose, "nats://localhost:4222", 10)
+if err != nil {
+    panic(err)
+}
+
+for {
+    // block until we get an update
+    idose.WaitForUpdate()
+
+    // print out the readings
+    r := idose.Readings()
+    log.Printf("EC: %02.f pH: %02.f Temp: %0.2f", r.Ec, r.PH, r.NutTemp)
+}
+```
+
+You can see some usage examples in this repo:
+
+- **examples/daynightonoff.go**: send a push notification when an IntelliDose transitions from day to night (or vice versa)
+- **examples/printreadings.go**: print readings to the terminal every time they change
 - **cmd/mydata/main.go**: interface with the MyData API
 
 ## TODO
