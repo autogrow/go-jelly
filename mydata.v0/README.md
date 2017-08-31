@@ -8,9 +8,9 @@ Use `go get` as normal:
 
     $ go get github.com/AutogrowSystems/go-jelly/mydata.v0
 
-A simple command line client can be build by running:
+A simple command line client can be built by running:
 
-    $ go install github.com/AutogrowSystems/go-jelly/mydata.v0/cmd/mydata
+    $ go install github.com/AutogrowSystems/go-jelly/cmd/mydata
 
 ## Usage
 
