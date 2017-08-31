@@ -8,7 +8,7 @@ Traditionally agricultural providers utilise proprietary products and services w
 
 Currently the IntelliDose is supported when used in combination with the IntelliLink or the [go-intelli](https://github.com/AutogrowSystems/go-intelli) gateway, with IntelliClimate support closely following.  The [MyData API](https://www.autogrow.com/mydata) is also supported.
 
-Future products will follow suit and we will try to add older products (such as the Multigrow) as well.
+Future products will follow suit and we will try to add other products (such as the Multigrow) as well.
 
 ## Installation
 
