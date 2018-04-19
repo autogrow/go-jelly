@@ -6,7 +6,7 @@ SDK for Autogrow devices and associated integrations.
 
 Traditionally agricultural providers utilise proprietary products and services which leave little flexibility for the growers to create their own solutions or connect them with existing infrastructure. This SDK is a work in progress and aims to provide customers with programmatic access to Autogrow devices.
 
-Currently the IntelliDose is supported when used in combination with the IntelliLink or the [go-intelli](https://github.com/AutogrowSystems/go-intelli) gateway, with IntelliClimate support closely following.  The [MyData API](https://www.autogrow.com/mydata) is also supported.
+Currently the IntelliDose is supported when used in combination with the [go-intelli](https://github.com/AutogrowSystems/go-intelli) gateway.
 
 Future products will follow suit and we will try to add other products (such as the Multigrow) as well.
 
