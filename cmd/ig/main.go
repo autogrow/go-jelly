@@ -45,50 +45,69 @@ func main() {
 	case listGrowrooms:
 		fmt.Println("Growrooms:")
 		for _, name := range cl.ListGrowrooms() {
-			fmt.Printf("- %s", name)
+			fmt.Printf("- %s\n", name)
 		}
 
 	case listDevices:
-		fmt.Printf("%-12s %-18s %-10s %s", "Type", "ID", "Name", "Growroom")
+		fmt.Printf("%-12s %-18s %-10s %s\n", "Type", "ID", "Name", "Growroom")
 		for _, d := range cl.Devices() {
-			fmt.Printf("%-12s %-18s %-10s %s", d.Type, d.ID, d.DeviceName, d.Growroom)
+			fmt.Printf("%-12s %-18s %-10s %s\n", d.Type, d.ID, d.DeviceName, d.Growroom)
 		}
 
-	case id != "" && printReadings:
+	case id != "":
 		if doser, errd := cl.IntelliDoseBySerial(id); errd == nil {
-			fmt.Printf("%-20s: %0.2f mS/cm²", "Nutrient", doser.Metrics.Ec)
-			fmt.Printf("%-20s: %0.2f pH", "Acidity", doser.Metrics.PH)
-			fmt.Printf("%-20s: %0.2f °C", "Water", doser.Metrics.NutTemp)
-			return
+			switch {
+			case printReadings:
+				_ = doser.GetMetrics()
+				fmt.Printf("%-20s: %0.2f mS/cm²\n", "Nutrient", doser.Metrics.Ec)
+				fmt.Printf("%-20s: %0.2f pH\n", "Acidity", doser.Metrics.PH)
+				fmt.Printf("%-20s: %0.2f °C\n", "Water", doser.Metrics.NutTemp)
+				return
+			case fmtJSON:
+				if err := doser.GetAll(); err != nil {
+					log.Fatalf("failed to get the doser data: %s", err)
+				}
+				dumpJSON(doser)
+			}
 		}
 
 		if clim, errc := cl.IntelliClimateBySerial(id); errc == nil {
-			fmt.Printf("%-20s: %0.2f °C", "Air Temp", clim.Metrics.AirTemp)
-			fmt.Printf("%-20s: %0.2f %%H", "RH", clim.Metrics.Rh)
-			fmt.Printf("%-20s: %0.2f kPa", "VPD", clim.Metrics.Vpd)
-			fmt.Printf("%-20s: %0.2f ppm", "CO2", clim.Metrics.Co2)
-			return
+			switch {
+			case printReadings:
+				_ = clim.GetMetrics()
+				fmt.Printf("%-20s: %0.2f °C\n", "Air Temp", clim.Metrics.AirTemp)
+				fmt.Printf("%-20s: %0.2f %%H\n", "RH", clim.Metrics.Rh)
+				fmt.Printf("%-20s: %0.2f kPa\n", "VPD", clim.Metrics.Vpd)
+				fmt.Printf("%-20s: %0.2f ppm\n", "CO2", clim.Metrics.Co2)
+				return
+			case fmtJSON:
+				if err := clim.GetAll(); err != nil {
+					log.Fatalf("failed to get the climate data: %s", err)
+				}
+				dumpJSON(clim)
+			}
 		}
 
 		log.Fatalf("no device found with serial %s", id)
 
 	case gr != "" && printReadings:
 		room, ok := cl.Growroom(gr)
+
 		if !ok {
 			log.Fatalf("Growroom %s not found", gr)
 		}
 
 		if len(room.Devices.IntelliClimates) > 0 {
-			fmt.Printf("%-20s: %0.2f °C", "Air Temp", room.Climate.AirTemp)
-			fmt.Printf("%-20s: %0.2f %%H", "RH", room.Climate.RH)
-			fmt.Printf("%-20s: %0.2f kPa", "VPD", room.Climate.VPD)
-			fmt.Printf("%-20s: %0.2f ppm", "CO2", room.Climate.CO2)
+			fmt.Printf("%-20s: %0.2f °C\n", "Air Temp", room.Climate.AirTemp)
+			fmt.Printf("%-20s: %0.2f %%H\n", "RH", room.Climate.RH)
+			fmt.Printf("%-20s: %0.2f kPa\n", "VPD", room.Climate.VPD)
+			fmt.Printf("%-20s: %0.2f ppm\n", "CO2", room.Climate.CO2)
 		}
 
 		if len(room.Devices.IntelliDoses) > 0 {
-			fmt.Printf("%-20s: %0.2f mS/cm²", "Nutrient", room.Rootzone.EC)
-			fmt.Printf("%-20s: %0.2f pH", "Acidity", room.Rootzone.PH)
-			fmt.Printf("%-20s: %0.2f °C", "Water", room.Rootzone.Temp)
+			fmt.Printf("%-20s: %0.2f mS/cm²\n", "Nutrient", room.Rootzone.EC)
+			fmt.Printf("%-20s: %0.2f pH\n", "Acidity", room.Rootzone.PH)
+			fmt.Printf("%-20s: %0.2f °C\n", "Water", room.Rootzone.Temp)
 		}
 
 	}
@@ -126,4 +145,13 @@ func readCreds(credsFile string) (creds, error) {
 	}
 
 	return creds, nil
+}
+
+func dumpJSON(v interface{}) {
+	data, err := json.Marshal(v)
+	if err != nil {
+		log.Fatalf("failed to format JSON: %s", err)
+	}
+
+	fmt.Println(string(data))
 }
