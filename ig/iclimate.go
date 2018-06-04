@@ -191,7 +191,7 @@ func (ic *IntelliClimate) GetConfigState() error {
 }
 
 // GetHistory the device by quering the history endpont for the time period specified
-func (ic *IntelliClimate) getHistory(to, from time.Time, points int) error {
+func (ic *IntelliClimate) GetHistory(to, from time.Time, points int) error {
 	msi, err := getHistory(ic.client, ic.GetID(), to, from, points)
 	if err != nil {
 		return err

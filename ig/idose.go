@@ -204,7 +204,7 @@ func (id *IntelliDose) GetConfigState() error {
 }
 
 // GetHistory the device by quering the history endpont for the time period specified
-func (id *IntelliDose) getHistory(to, from time.Time, points int) error {
+func (id *IntelliDose) GetHistory(to, from time.Time, points int) error {
 	msi, err := getHistory(id.client, id.GetID(), to, from, points)
 	if err != nil {
 		return err

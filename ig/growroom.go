@@ -291,7 +291,7 @@ func (g *Growroom) WaterTemp() (bool, string) {
 // GetClimateHistory - returns the history for the growroom
 func (g *Growroom) GetClimateHistory(from, to time.Time, points int) error {
 	if len(g.Climates()) > 0 {
-		return g.Climates()[0].getHistory(from, to, points)
+		return g.Climates()[0].GetHistory(from, to, points)
 	}
 	return fmt.Errorf("Growroom has no Intelliclimates")
 }
@@ -299,7 +299,7 @@ func (g *Growroom) GetClimateHistory(from, to time.Time, points int) error {
 // GetDoserHistory - returns the history for the growroom
 func (g *Growroom) GetDoserHistory(from, to time.Time, points int) error {
 	if len(g.Dosers()) > 0 {
-		return g.Dosers()[0].getHistory(from, to, points)
+		return g.Dosers()[0].GetHistory(from, to, points)
 	}
 	return fmt.Errorf("Growroom has no Intellidosers")
 }
