@@ -179,6 +179,26 @@ func (ds devices) Average(field string) float64 {
 	return sum / float64(count)
 }
 
+// IntelliDose returns this device as an IntelliDose, or an error if this device is
+// not an IntelliDose
+func (d *Device) IntelliDose() (*IntelliDose, error) {
+	if d.Type != "idoze" {
+		return nil, fmt.Errorf("this device is not an IntelliDose")
+	}
+
+	return NewIntelliDose(d), nil
+}
+
+// IntelliClimate returns this device as an IntelliClimate, or an error if this device is
+// not an IntelliClimate
+func (d *Device) IntelliClimate() (*IntelliClimate, error) {
+	if d.Type != "iclimate" {
+		return nil, fmt.Errorf("this device is not an IntelliClimate")
+	}
+
+	return NewIntelliClimate(d), nil
+}
+
 // AttachClient - since all information relating to a device has to be got specifically from a device endpoint it makes sense to
 // attach a valid API client to the device.
 func (d *Device) AttachClient(c *Client) {
