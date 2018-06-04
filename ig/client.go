@@ -4,9 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
-	"strings"
+	"path"
 	"sync"
 	"time"
 )
@@ -30,9 +31,7 @@ type Client struct {
 	lock               *sync.RWMutex
 	username           string
 	password           string
-	token              string
-	refreshToken       string
-	refreshTime        float64
+	auth               authResponse
 	CheckedDevices     float64
 	growrooms          map[string]*Growroom
 	devices            *Devices
@@ -61,7 +60,7 @@ func NewClient(user, pass string) (*Client, error) {
 		return c, err
 	}
 
-	go c.refresher()
+	go c.autoAuthExtender()
 
 	return c, nil
 }
@@ -76,90 +75,101 @@ func (c *Client) Close() error {
 
 // GetToken - updates the token using an existing client
 func (c *Client) authenticate() error {
-	values := map[string]string{"username": c.username, "password": c.password}
-
-	jsonValue, _ := json.Marshal(values)
-
-	body := bytes.NewBuffer(jsonValue)
-
-	req, err := http.NewRequest("POST", igTokenURI, body)
-
+	data, err := json.Marshal(map[string]string{"username": c.username, "password": c.password})
 	if err != nil {
-		// handle err
+		return err
+	}
+	req, err := http.NewRequest("POST", igTokenURI, bytes.NewBuffer(data))
+	if err != nil {
 		return fmt.Errorf("Unable to get tokens %s", err)
 	}
+
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := c.Do(req)
+	res, err := c.Do(req)
 	if err != nil {
-		// handle err
 		return fmt.Errorf("Unable to get tokens %s", err)
 	}
 
-	defer resp.Body.Close()
-
-	return c.processBody(resp)
+	return c.processAuthResponse(res)
 }
 
 // Token returns the current token for the client
 func (c *Client) getToken() string {
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	return c.token
+	return c.auth.Token
 }
 
-func (c *Client) processBody(resp *http.Response) error {
-	msi := make(map[string]interface{})
+type authResponse struct {
+	Token        string  `json:"api_access_token"`
+	ExpiresIn    float64 `json:"expires_in"`
+	RefreshToken string  `json:"refresh_token"`
+}
 
-	data, err := ioutil.ReadAll(resp.Body)
+func (auth authResponse) reauthPayload(user string) io.Reader {
+	data, _ := json.Marshal(map[string]string{"username": user, "refresh_token": auth.RefreshToken})
+	return bytes.NewBuffer(data)
+}
 
-	if err != nil {
-		return fmt.Errorf("couldn't read response body: %s", err)
-	}
-
-	err = json.Unmarshal(data, &msi)
-
-	if err != nil {
-		return fmt.Errorf("couldn't unmarshal response body: %s", err)
-	}
-
-	_, exists := msi["api_access_token"]
-	if !exists {
+func (auth authResponse) validate() error {
+	if auth.Token == "" {
 		return fmt.Errorf("Response from server doesn't contain an api token")
 	}
 
-	token, isString := msi["api_access_token"].(string)
-	if !isString {
-		return fmt.Errorf("Recieved Token is no a string")
-	}
-
-	_, exists = msi["expires_in"]
-	if !exists {
+	if auth.ExpiresIn == 0 {
 		return fmt.Errorf("Response from server doesn't contain a refresh time")
 	}
 
-	expiresIn, isFloat := msi["expires_in"].(float64)
-	if !isFloat {
-		return fmt.Errorf("Refresh time couldn't be converted to a int")
-	}
-
-	_, exists = msi["refresh_token"]
-	if !exists {
+	if auth.RefreshToken == "" {
 		return fmt.Errorf("Response from server doesn't contain a refresh token")
 	}
-	refresh, isString := msi["refresh_token"].(string)
-	if !isString {
-		return fmt.Errorf("Refresh token is not a string")
-	}
-
-	c.token = token
-	c.refreshTime = expiresIn
-	c.refreshToken = refresh
 
 	return nil
 }
 
-func (c *Client) refresher() {
+func (c *Client) processAuthResponse(res *http.Response) error {
+	auth := authResponse{}
+	data, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return fmt.Errorf("couldn't read response body: %s", err)
+	}
+
+	err = json.Unmarshal(data, &auth)
+	if err != nil {
+		return fmt.Errorf("couldn't unmarshal response body: %s", err)
+	}
+
+	if err := auth.validate(); err != nil {
+		return err
+	}
+
+	c.auth = auth
+	return nil
+}
+
+func (c *Client) extendAuth() error {
+	req, err := http.NewRequest("POST", igRefreshURI, c.auth.reauthPayload(c.username))
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	res, err := c.Do(req)
+	if err != nil {
+		return err
+	}
+
+	err = c.processAuthResponse(res)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c *Client) autoAuthExtender() {
 	c.tokenRefresherQuit = make(chan bool)
 	defer func() { c.tokenRefresherQuit = nil }()
 	timer := time.NewTimer(c.getRefreshTime())
@@ -168,28 +178,12 @@ func (c *Client) refresher() {
 		select {
 		case <-c.tokenRefresherQuit:
 			return
+
 		case <-timer.C:
-
-			body := strings.NewReader(`{"username": c.username, "refresh_token": c.refreshToken}`)
-			req, err := http.NewRequest("POST", igRefreshURI, body)
-			if err != nil {
-				// handle err
-
-			}
-			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
-			resp, err := c.Do(req)
-			if err != nil {
-				// handle err
+			if err := c.extendAuth(); err != nil {
+				// TODO: handle err
 			}
 
-			err = c.processBody(resp)
-
-			resp.Body.Close()
-
-			if err != nil {
-				// handle err
-			}
 			timer.Reset(c.getRefreshTime())
 		}
 	}
@@ -218,7 +212,7 @@ func (c *Client) AutoUpdater(pollInterval int, quit chan bool, updateInterval ch
 }
 
 func (c *Client) getRefreshTime() time.Duration {
-	rTime := c.refreshTime
+	rTime := c.auth.ExpiresIn
 	if rTime > 60 {
 		rTime -= 60
 	}
