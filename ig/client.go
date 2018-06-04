@@ -224,44 +224,36 @@ func (c *Client) GetDevices() error {
 	return c.RefreshDevices()
 }
 
-// RefreshDevices will get the latest data from the API and update all known structs
-func (c *Client) RefreshDevices() error {
-
-	url := igDeviceURI + c.username
-
-	req, err := http.NewRequest("GET", url, nil)
-
+func (c *Client) doRequest(method, uri string, body io.Reader) (*http.Response, error) {
+	req, err := http.NewRequest(method, path.Join(igBaseURL, uri), body)
 	if err != nil {
-		return fmt.Errorf("Unable to get devices %s", err)
+		return nil, err
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", c.token)
+	req.Header.Set("Authorization", c.getToken())
 
-	resp, err := c.Do(req)
+	return c.Do(req)
+}
 
+// RefreshDevices will get the latest data from the API and update all known structs
+func (c *Client) RefreshDevices() error {
+	res, err := c.doRequest("GET", igDeviceURI+c.username, nil)
 	if err != nil {
-		return fmt.Errorf("Get request return an error %s", err)
+		return fmt.Errorf("failed to refresh devices; %s", err)
 	}
 
-	defer resp.Body.Close()
-
 	msi := make(map[string]interface{})
-
-	data, err := ioutil.ReadAll(resp.Body)
-
+	data, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		return fmt.Errorf("couldn't read response body: %s", err)
 	}
 
-	err = json.Unmarshal(data, &msi)
-
-	if err != nil {
+	if err := json.Unmarshal(data, &msi); err != nil {
 		return fmt.Errorf("couldn't unmarshal response body: %s", err)
 	}
 
 	checkedDevices, exists := msi["checked_devices"]
-
 	if !exists {
 		return fmt.Errorf("no checked devices in response")
 	}
@@ -269,20 +261,17 @@ func (c *Client) RefreshDevices() error {
 	c.CheckedDevices = checkedDevices.(float64)
 
 	devices, exists := msi["devices"]
-
 	if !exists {
 		return fmt.Errorf("no devices in response")
 	}
 
-	var igDevices []*Device
-
-	jBytes, err := json.Marshal(devices)
+	data, err = json.Marshal(devices)
 	if err != nil {
 		return fmt.Errorf("Error marshalling devices interface: %s", err)
 	}
 
-	err = json.Unmarshal(jBytes, &igDevices)
-	if err != nil {
+	var igDevices []*Device
+	if err := json.Unmarshal(data, &igDevices); err != nil {
 		return fmt.Errorf("Error unmarshalling devices: %s", err)
 	}
 
