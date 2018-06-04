@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 
 	"github.com/autogrow/go-jelly/ig"
-	"github.com/penguinpowernz/go-ian/util/tell"
 )
 
 type creds struct {
@@ -19,18 +18,6 @@ type creds struct {
 }
 
 func main() {
-	credsFile := os.Getenv("HOME") + "/.intelligrow/creds"
-	creds, err := readCreds(credsFile)
-	if err != nil {
-		initCreds(credsFile)
-		tell.Fatalf("you need to enter your credentials in the file %s to continue", credsFile)
-	}
-
-	cl, err := ig.NewClient(creds.User, creds.Pass)
-	if err != nil {
-		tell.Fatalf("failed to create IG client: %s", err)
-	}
-
 	var listDevices, listGrowrooms bool
 	var id, gr string
 	var printReadings, fmtJSON bool
@@ -41,6 +28,18 @@ func main() {
 	flag.BoolVar(&printReadings, "r", false, "print readings")
 	flag.BoolVar(&fmtJSON, "json", false, "format as JSON")
 	flag.Parse()
+
+	credsFile := os.Getenv("HOME") + "/.intelligrow/creds"
+	creds, err := readCreds(credsFile)
+	if err != nil {
+		initCreds(credsFile)
+		log.Fatalf("you need to enter your credentials in the file %s to continue", credsFile)
+	}
+
+	cl, err := ig.NewClient(creds.User, creds.Pass)
+	if err != nil {
+		log.Fatalf("failed to create IG client: %s", err)
+	}
 
 	switch {
 	case listGrowrooms:
@@ -120,6 +119,10 @@ func readCreds(credsFile string) (creds, error) {
 	err = json.Unmarshal(data, &creds)
 	if err != nil {
 		log.Fatalf("failed to read creds file at %s: %s", credsFile, err)
+	}
+
+	if creds.Pass == "" || creds.User == "" {
+		log.Fatalf("you need to enter your credentials in the file %s to continue", credsFile)
 	}
 
 	return creds, nil
