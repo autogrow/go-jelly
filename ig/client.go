@@ -224,6 +224,30 @@ func (c *Client) GetDevices() error {
 	return c.RefreshDevices()
 }
 
+
+func (c *Client) SaveDeviceState(i Intelli) error {
+	payload, err := i.StatePayload()
+	if err != nil {
+		return err
+	}
+
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+
+	res, err := c.doRequest("PUT", "state", bytes.NewBuffer(data))
+	if err != nil {
+		return fmt.Errorf("failed to save state/config: %s", err)
+	}
+
+	if res.StatusCode != 200 {
+		return fmt.Errorf("unexpected http status: %s", res.StatusCode)
+	}
+
+	return nil
+}
+
 func (c *Client) doRequest(method, uri string, body io.Reader) (*http.Response, error) {
 	req, err := http.NewRequest(method, path.Join(igBaseURL, uri), body)
 	if err != nil {

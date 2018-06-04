@@ -2,6 +2,7 @@ package ig
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/autogrow/go-jelly/ig/datastructs"
@@ -29,6 +30,7 @@ type IntelliDose struct {
 	ValidStatus bool                      `json:"valid_status"`
 	Status      *datastructs.StatusIDose  `json:"status"`
 	History     *datastructs.DoserHistory `json:"history"`
+	tx          *transaction
 }
 
 // NewIntelliDose - returns a new intellidose for the device passed in
@@ -41,37 +43,8 @@ func NewIntelliDose(dev *Device) *IntelliDose {
 		false,
 		&datastructs.StatusIDose{},
 		&datastructs.DoserHistory{},
+		&transaction{new(sync.Mutex), false},
 	}
-}
-
-// SetPHTarget will set the target pH the system should dose to
-func (id *IntelliDose) SetPHTarget(target float64) error {
-	return fmt.Errorf("not implemented")
-}
-
-// SetNutrientTarget will set the target EC the system should dose to
-func (id *IntelliDose) SetNutrientTarget(target float64) error {
-	return fmt.Errorf("not implemented")
-}
-
-// DisableNutrientDosing will disable the nutrient dosing
-func (id *IntelliDose) DisableNutrientDosing(target float64) error {
-	return fmt.Errorf("not implemented")
-}
-
-// EnableNutrientDosing will enable the nutrient dosing
-func (id *IntelliDose) EnableNutrientDosing(target float64) error {
-	return fmt.Errorf("not implemented")
-}
-
-// DisablePHDosing will disable the pH dosing
-func (id *IntelliDose) DisablePHDosing(target float64) error {
-	return fmt.Errorf("not implemented")
-}
-
-// EnablePHDosing will enable the pH dosing
-func (id *IntelliDose) EnablePHDosing(target float64) error {
-	return fmt.Errorf("not implemented")
 }
 
 // getEndpoint the device by quering the endpoint passed in
@@ -223,83 +196,26 @@ func (id *IntelliDose) GetHistory(to, from time.Time, points int) error {
 	return updateStruct(msi, id.History)
 }
 
-// UpdateState - Push the state to the IG
-func (id *IntelliDose) UpdateState() error {
+// SaveConfigState will save the config and state
+func (id *IntelliDose) SaveConfigState() error {
+	return id.client.SaveDeviceState(id)
+}
+
+// StatePayload builds and returns the state payload for updating a devices state or config
+func (id *IntelliDose) StatePayload() (interface{}, error) {
 	if !id.ValidConfig {
-		return fmt.Errorf("Device doesn't have a valid config")
+		return nil, fmt.Errorf("invalid config")
 	}
 
 	if !id.ValidStatus {
-		return fmt.Errorf("Device doesn't have a valid status")
+		return nil, fmt.Errorf("invalid status")
 	}
 
 	msi := make(map[string]interface{})
 	msi["device"] = id.GetID()
 	msi["state"] = id.Status
 	msi["config"] = id.Config
-
-	return id.client.put(igDevicesURI, msi)
-}
-
-// ForceNutrient - sets the appropriate field in the Status to force an nutrient Dose
-func (id *IntelliDose) ForceNutrient() bool {
-	err := id.GetConfigState()
-	if err != nil {
-		return false
-	}
-
-	for num, status := range id.Status.Status {
-		if status.Function == NutrientDosingFunction {
-			id.Status.Status[num].ForceOn = true
-			return true
-		}
-	}
-	return false
-}
-
-// ForcePH - sets the appropriate field in the Status to force an pH Dose
-func (id *IntelliDose) ForcePH() bool {
-	err := id.GetConfigState()
-	if err != nil {
-		return false
-	}
-
-	for num, status := range id.Status.Status {
-		if status.Function == PHDosingFunction {
-			id.Status.Status[num].ForceOn = true
-			return true
-		}
-	}
-	return false
-}
-
-// ForceIrrigation - sets the appropriate field in the Status to force an irrigation
-func (id *IntelliDose) ForceIrrigation() bool {
-	err := id.GetConfigState()
-
-	if err != nil {
-		return false
-	}
-
-	for num, status := range id.Status.Status {
-		if status.Function == IrrigationFunction {
-			id.Status.Status[num].ForceOn = true
-			return true
-		}
-	}
-	return false
-}
-
-// ForceStation - sets the appropriate field in the Status to force an irrigation on the station specified (1-4)
-func (id *IntelliDose) ForceStation(stn string) bool {
-	funcName := StationFunction + stn
-	for num, status := range id.Status.Status {
-		if status.Function == funcName {
-			id.Status.Status[num].ForceOn = true
-			return true
-		}
-	}
-	return false
+	return msi, nil
 }
 
 // AverageDoseReadings - returns an average for the field specified from a list of IntelliDose

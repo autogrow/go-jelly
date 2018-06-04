@@ -2,6 +2,7 @@ package ig
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/autogrow/go-jelly/ig/datastructs"
@@ -21,6 +22,7 @@ type IntelliClimate struct {
 	ValidStatus bool                         `json:"valid_status"`
 	Status      *datastructs.StatusIClimate  `json:"status"`
 	History     *datastructs.ClimateHistory  `json:"history"`
+	tx          *transaction
 }
 
 // NewIntelliClimate - returns a new intelliclimate for the device passed in
@@ -33,32 +35,13 @@ func NewIntelliClimate(dev *Device) *IntelliClimate {
 		false,
 		&datastructs.StatusIClimate{},
 		&datastructs.ClimateHistory{},
+		&transaction{new(sync.Mutex), false},
 	}
 }
 
-// SetTempTarget will set the temperature that the room should be kept to
-func (ic *IntelliClimate) SetTempTarget(target float64) error {
-	return fmt.Errorf("not implemented")
-}
-
-// SetCO2Target will set the CO2 levels in PPM that the room should be kept to
-func (ic *IntelliClimate) SetCO2Target(target float64) error {
-	return fmt.Errorf("not implemented")
-}
-
-// SetRHTarget will set the RH target that the room should be kept to
-func (ic *IntelliClimate) SetRHTarget(target float64) error {
-	return fmt.Errorf("not implemented")
-}
-
-// EnableCO2Dosing will enable the CO2 dosing
-func (ic *IntelliClimate) EnableCO2Dosing() error {
-	return fmt.Errorf("not implemented")
-}
-
-// DisableCO2Dosing will disable the CO2 dosing
-func (ic *IntelliClimate) DisableCO2Dosing() error {
-	return fmt.Errorf("not implemented")
+// SaveConfigState will save the config and state
+func (ic *IntelliClimate) SaveConfigState() error {
+	return ic.client.SaveDeviceState(ic)
 }
 
 // getEndpoint the device by quering the endpoint passed in
@@ -188,14 +171,12 @@ func (ic *IntelliClimate) GetState() error {
 
 // GetConfigState - this pulls both the config and state from the device endpoint
 func (ic *IntelliClimate) GetConfigState() error {
-	cfgError := ic.GetConfig()
-	if cfgError != nil {
-
+	if err := ic.GetConfig(); err != nil {
+		return err
 	}
 
-	stateError := ic.GetState()
-	if stateError != nil {
-
+	if err := ic.GetState(); err != nil {
+		return err
 	}
 
 	return nil
@@ -210,22 +191,21 @@ func (ic *IntelliClimate) GetHistory(to, from time.Time, points int) error {
 	return updateStruct(msi, ic.History)
 }
 
-// UpdateState - Push the state to the IG
-func (ic *IntelliClimate) UpdateState() error {
+// StatePayload builds and returns the state payload for updating a devices state or config
+func (ic *IntelliClimate) StatePayload() (interface{}, error) {
 	if !ic.ValidConfig {
-		return fmt.Errorf("Device doesn't have a valid config")
+		return nil, fmt.Errorf("invalid config")
 	}
 
 	if !ic.ValidStatus {
-		return fmt.Errorf("Device doesn't have a valid status")
+		return nil, fmt.Errorf("invalid status")
 	}
 
 	msi := make(map[string]interface{})
 	msi["device"] = ic.GetID()
 	msi["state"] = ic.Status
 	msi["config"] = ic.Config
-
-	return ic.client.put(StateEP, msi)
+	return msi, nil
 }
 
 // AverageClimateReadings - returns an average for the field specified from a list of IntelliDose

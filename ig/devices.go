@@ -15,6 +15,11 @@ const (
 	StateEP = "state"
 )
 
+type Intelli interface {
+	StatePayload() (interface{}, error)
+	GetID() string
+}
+
 // Devices - object that contains a slice of intellidosers and intelliclimates
 type Devices struct {
 	IntelliClimates []*IntelliClimate
