@@ -312,36 +312,38 @@ func (c *Client) addDeviceToGrowroom(dev *Device) {
 	gr.AddDevice(dev)
 }
 
-// IntelliClimateByName will return the IntelliClimate with the given name
-func (c *Client) IntelliClimateByName(name string) (*IntelliClimate, error) {
+// IntelliClimate will return the IntelliClimate with the given name or serial
+func (c *Client) IntelliClimate(nameOrID string) (*IntelliClimate, error) {
 	if c.devices.IsEmpty() {
 		c.RefreshDevices()
 	}
-	return c.devices.GetClimateByName(name)
+
+	ic, err := c.devices.GetClimateByID(nameOrID)
+	if err != nil {
+		ic, err = c.devices.GetClimateByName(nameOrID)
+		if err != nil {
+			return nil, fmt.Errorf("no IntelliClimate found with name or serial of %s", nameOrID)
+		}
+	}
+
+	return ic, nil
 }
 
-// IntelliDoseByName will return the IntelliDose with the given name
-func (c *Client) IntelliDoseByName(name string) (*IntelliDose, error) {
+// IntelliDose will return the IntelliDose with the given name  or serial
+func (c *Client) IntelliDose(nameOrID string) (*IntelliDose, error) {
 	if c.devices.IsEmpty() {
 		c.RefreshDevices()
 	}
-	return c.devices.GetDoserByName(name)
-}
 
-// IntelliClimateBySerial will return the IntelliClimate with the given serial
-func (c *Client) IntelliClimateBySerial(sn string) (*IntelliClimate, error) {
-	if c.devices.IsEmpty() {
-		c.RefreshDevices()
+	id, err := c.devices.GetDoserByID(nameOrID)
+	if err != nil {
+		id, err = c.devices.GetDoserByName(nameOrID)
+		if err != nil {
+			return nil, fmt.Errorf("no IntelliDose found with name or serial of %s", nameOrID)
+		}
 	}
-	return c.devices.GetClimateByID(sn)
-}
 
-// IntelliDoseBySerial will return the IntelliDose with the given serial
-func (c *Client) IntelliDoseBySerial(sn string) (*IntelliDose, error) {
-	if c.devices.IsEmpty() {
-		c.RefreshDevices()
-	}
-	return c.devices.GetDoserByID(sn)
+	return id, nil
 }
 
 // IntelliDoses will return all known IntelliDoses
@@ -398,9 +400,8 @@ func (c *Client) ListDevicesBySerial() []string {
 		serials = append(serials, ic.ID)
 	}
 
-	for _, id := range c.devices.IntelliClimates {
+	for _, id := range c.devices.IntelliDoses {
 		serials = append(serials, id.ID)
-
 	}
 
 	return serials

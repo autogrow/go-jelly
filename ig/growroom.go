@@ -45,7 +45,7 @@ type GrowroomRootzone struct {
 
 // Growroom - object containing all relative information about a single growroom
 type Growroom struct {
-	*Devices          `json:"devices"`
+	devices           *Devices
 	lock              *sync.RWMutex
 	Name              string            `json:"name"`
 	Climate           *GrowroomClimate  `json:"climate"`
@@ -78,7 +78,71 @@ func (g *Growroom) GetName() string {
 
 // AddDevice - add device to grow room
 func (g *Growroom) AddDevice(dev *Device) {
-	g.Add(dev)
+	g.devices.Add(dev)
+}
+
+// IntelliClimate will return the IntelliClimate with the given name or serial
+func (g *Growroom) IntelliClimate(nameOrID string) (*IntelliClimate, error) {
+	ic, err := g.devices.GetClimateByID(nameOrID)
+	if err != nil {
+		ic, err = g.devices.GetClimateByName(nameOrID)
+		if err != nil {
+			return nil, fmt.Errorf("no IntelliClimate found with name or serial of %s", nameOrID)
+		}
+	}
+
+	return ic, nil
+}
+
+// IntelliDose will return the IntelliDose with the given name  or serial
+func (g *Growroom) IntelliDose(nameOrID string) (*IntelliDose, error) {
+	id, err := g.devices.GetDoserByID(nameOrID)
+	if err != nil {
+		id, err = g.devices.GetDoserByName(nameOrID)
+		if err != nil {
+			return nil, fmt.Errorf("no IntelliDose found with name or serial of %s", nameOrID)
+		}
+	}
+
+	return id, nil
+}
+
+// IntelliDoses will return all known IntelliDoses
+func (g *Growroom) IntelliDoses() ([]*IntelliDose, error) {
+	return g.devices.Dosers(), nil
+}
+
+// IntelliClimates will return all known IntelliClimates
+func (g *Growroom) IntelliClimates() ([]*IntelliClimate, error) {
+	return g.devices.Climates(), nil
+}
+
+// Devices returns the devices found in IntelliGrow for the user
+func (g *Growroom) Devices() []*Device {
+	devs := []*Device{}
+	for _, ic := range g.devices.IntelliClimates {
+		devs = append(devs, ic.Device)
+	}
+
+	for _, id := range g.devices.IntelliDoses {
+		devs = append(devs, id.Device)
+	}
+
+	return devs
+}
+
+// ListDevicesBySerial will return the serial numbers of all known devices
+func (g *Growroom) ListDevicesBySerial() []string {
+	serials := []string{}
+	for _, ic := range g.devices.IntelliClimates {
+		serials = append(serials, ic.ID)
+	}
+
+	for _, id := range g.devices.IntelliDoses {
+		serials = append(serials, id.ID)
+	}
+
+	return serials
 }
 
 // Update - updated the devices and readings inside the growroom
@@ -86,7 +150,7 @@ func (g *Growroom) Update() error {
 	var errMsg string
 	var aError bool
 
-	err := g.UpdateClimateMetrics()
+	err := g.devices.UpdateClimateMetrics()
 	if err != nil {
 		aError = true
 		errMsg = err.Error()
@@ -98,7 +162,7 @@ func (g *Growroom) Update() error {
 		errMsg = err.Error()
 	}
 
-	err = g.UpdateDoserMetrics()
+	err = g.devices.UpdateDoserMetrics()
 	if err != nil {
 		if !aError {
 			errMsg += err.Error()
@@ -126,10 +190,10 @@ func (g *Growroom) GetDevices() ([]string, []string) {
 	var climates []string
 	var dosers []string
 
-	for _, d := range g.Climates() {
+	for _, d := range g.devices.Climates() {
 		climates = append(climates, d.GetID())
 	}
-	for _, d := range g.Dosers() {
+	for _, d := range g.devices.Dosers() {
 		dosers = append(dosers, d.GetID())
 	}
 	return climates, dosers
@@ -138,7 +202,7 @@ func (g *Growroom) GetDevices() ([]string, []string) {
 // UpdateClimate - takes the readings dict from an intelliclimate and update them into the room climate
 func (g *Growroom) UpdateClimate() error {
 	// Get my Climates
-	climates := g.Climates()
+	climates := g.devices.Climates()
 	switch len(climates) {
 	case 0:
 		return fmt.Errorf("There are no intelliclimates in the growroom")
@@ -164,7 +228,7 @@ func (g *Growroom) UpdateClimate() error {
 // UpdateRootzone - takes the readings dict from an intellidose and update them into the room rootzone
 func (g *Growroom) UpdateRootzone() error {
 	// Get my Dosers
-	dosers := g.Dosers()
+	dosers := g.devices.Dosers()
 	switch len(dosers) {
 	case 0:
 		return fmt.Errorf("There are no intellicdosers in the growroom")
@@ -290,16 +354,16 @@ func (g *Growroom) WaterTemp() (bool, string) {
 
 // GetClimateHistory - returns the history for the growroom
 func (g *Growroom) GetClimateHistory(from, to time.Time, points int) error {
-	if len(g.Climates()) > 0 {
-		return g.Climates()[0].GetHistory(from, to, points)
+	if len(g.devices.Climates()) > 0 {
+		return g.devices.Climates()[0].GetHistory(from, to, points)
 	}
 	return fmt.Errorf("Growroom has no Intelliclimates")
 }
 
 // GetDoserHistory - returns the history for the growroom
 func (g *Growroom) GetDoserHistory(from, to time.Time, points int) error {
-	if len(g.Dosers()) > 0 {
-		return g.Dosers()[0].GetHistory(from, to, points)
+	if len(g.devices.Dosers()) > 0 {
+		return g.devices.Dosers()[0].GetHistory(from, to, points)
 	}
 	return fmt.Errorf("Growroom has no Intellidosers")
 }
