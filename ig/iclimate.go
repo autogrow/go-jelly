@@ -1,7 +1,6 @@
 package ig
 
 import (
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -62,11 +61,6 @@ func (ic *IntelliClimate) DisableCO2Dosing() error {
 	return fmt.Errorf("not implemented")
 }
 
-// MarshalJSON will marshal the IntelliClimate into JSON
-func (ic *IntelliClimate) MarshalJSON() ([]byte, error) {
-	return json.Marshal(ic)
-}
-
 // getEndpoint the device by quering the endpoint passed in
 func (ic *IntelliClimate) getEndpoint(endpoint string) error {
 	switch endpoint {
@@ -98,6 +92,23 @@ func (ic *IntelliClimate) getEndpoint(endpoint string) error {
 	default:
 		return fmt.Errorf("Unknown field %s requested to be updated", endpoint)
 	}
+}
+
+// GetAll will get the config, state and metrics from the API
+func (ic *IntelliClimate) GetAll() error {
+	if err := ic.GetMetrics(); err != nil {
+		return err
+	}
+
+	if err := ic.GetConfig(); err != nil {
+		return err
+	}
+
+	if err := ic.GetState(); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // GetMetrics the device by quering the endpoint passed in

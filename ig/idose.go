@@ -1,7 +1,6 @@
 package ig
 
 import (
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -43,11 +42,6 @@ func NewIntelliDose(dev *Device) *IntelliDose {
 		&datastructs.StatusIDose{},
 		&datastructs.DoserHistory{},
 	}
-}
-
-// MarshalJSON will marshal the IntelliDose into JSON
-func (id *IntelliDose) MarshalJSON() ([]byte, error) {
-	return json.Marshal(id)
 }
 
 // SetPHTarget will set the target pH the system should dose to
@@ -111,6 +105,23 @@ func (id *IntelliDose) getEndpoint(endpoint string) error {
 	default:
 		return fmt.Errorf("Unknown field %s requested to be updated", endpoint)
 	}
+}
+
+// GetAll will get the config, state and metrics from the API
+func (id *IntelliDose) GetAll() error {
+	if err := id.GetMetrics(); err != nil {
+		return err
+	}
+
+	if err := id.GetConfig(); err != nil {
+		return err
+	}
+
+	if err := id.GetState(); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // GetMetrics the device by quering the endpoint passed in
