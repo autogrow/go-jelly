@@ -16,10 +16,39 @@ Install as you would any go library:
 
 ### IntelliGrow
 
+[![](http://img.shields.io/badge/godoc-reference-5272B4.svg?style=flat-square)](https://godoc.org/github.com/AutogrowSystems/go-jelly/ig)
+
 IntelliDoses and IntelliClimates are supported via the IntelliGrow API when used in conjuction with an IntelliLink.
 
 ```go
 import "github.com/AutogrowSystems/go-jelly/ig"
+
+user := "me"
+pass := "secret"
+
+client := ig.NewClient(user, pass)
+
+devices, err := client.Devices()
+if err != nil {
+    panic(err)
+}
+
+// print the known devices
+for _, d := range devices {
+    fmt.Printf("%-12s %-18s %-20s %s", d.Type, d.ID, d.DeviceName, d.Growroom)
+}
+
+doser, err := client.GetIntelliDoseByName("ASLID17081149")
+if err != nil {
+    panic(err)
+}
+
+if doser.ForceIrrigation() {
+    err := doser.UpdateState()
+    if err != nil {
+        panic(err)
+    }
+}
 ```
 
 ### Multigrow
