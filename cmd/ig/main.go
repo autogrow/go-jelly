@@ -55,36 +55,38 @@ func main() {
 		}
 
 	case id != "":
-		if doser, errd := cl.IntelliDoseBySerial(id); errd == nil {
+		if doser, errd := cl.IntelliDose(id); errd == nil {
 			switch {
 			case printReadings:
 				_ = doser.GetMetrics()
-				fmt.Printf("%-20s: %0.2f mS/cm²\n", "Nutrient", doser.Metrics.Ec)
-				fmt.Printf("%-20s: %0.2f pH\n", "Acidity", doser.Metrics.PH)
-				fmt.Printf("%-20s: %0.2f °C\n", "Water", doser.Metrics.NutTemp)
+				fmt.Printf("%20s: %0.2f mS/cm²\n", "Nutrient", doser.Metrics.Ec)
+				fmt.Printf("%20s: %0.2f pH\n", "Acidity", doser.Metrics.PH)
+				fmt.Printf("%20s: %0.2f °C\n", "Water", doser.Metrics.NutTemp)
 				return
 			case fmtJSON:
 				if err := doser.GetAll(); err != nil {
 					log.Fatalf("failed to get the doser data: %s", err)
 				}
 				dumpJSON(doser)
+				return
 			}
 		}
 
-		if clim, errc := cl.IntelliClimateBySerial(id); errc == nil {
+		if clim, errc := cl.IntelliClimate(id); errc == nil {
 			switch {
 			case printReadings:
 				_ = clim.GetMetrics()
-				fmt.Printf("%-20s: %0.2f °C\n", "Air Temp", clim.Metrics.AirTemp)
-				fmt.Printf("%-20s: %0.2f %%H\n", "RH", clim.Metrics.Rh)
-				fmt.Printf("%-20s: %0.2f kPa\n", "VPD", clim.Metrics.Vpd)
-				fmt.Printf("%-20s: %0.2f ppm\n", "CO2", clim.Metrics.Co2)
+				fmt.Printf("%20s: %0.2f °C\n", "Air", clim.Metrics.AirTemp)
+				fmt.Printf("%20s: %0.2f %%H\n", "RH", clim.Metrics.Rh)
+				fmt.Printf("%20s: %0.2f kPa\n", "VPD", clim.Metrics.Vpd)
+				fmt.Printf("%20s: %0.2f ppm\n", "CO2", clim.Metrics.Co2)
 				return
 			case fmtJSON:
 				if err := clim.GetAll(); err != nil {
 					log.Fatalf("failed to get the climate data: %s", err)
 				}
 				dumpJSON(clim)
+				return
 			}
 		}
 
@@ -97,19 +99,20 @@ func main() {
 			log.Fatalf("Growroom %s not found", gr)
 		}
 
-		if len(room.Devices.IntelliClimates) > 0 {
-			fmt.Printf("%-20s: %0.2f °C\n", "Air Temp", room.Climate.AirTemp)
-			fmt.Printf("%-20s: %0.2f %%H\n", "RH", room.Climate.RH)
-			fmt.Printf("%-20s: %0.2f kPa\n", "VPD", room.Climate.VPD)
-			fmt.Printf("%-20s: %0.2f ppm\n", "CO2", room.Climate.CO2)
+		ics, _ := room.IntelliClimates()
+		if len(ics) > 0 {
+			fmt.Printf("%20s: %0.2f °C\n", "Air", room.Climate.AirTemp)
+			fmt.Printf("%20s: %0.2f %%H\n", "RH", room.Climate.RH)
+			fmt.Printf("%20s: %0.2f kPa\n", "VPD", room.Climate.VPD)
+			fmt.Printf("%20s: %0.2f ppm\n", "CO2", room.Climate.CO2)
 		}
 
-		if len(room.Devices.IntelliDoses) > 0 {
-			fmt.Printf("%-20s: %0.2f mS/cm²\n", "Nutrient", room.Rootzone.EC)
-			fmt.Printf("%-20s: %0.2f pH\n", "Acidity", room.Rootzone.PH)
-			fmt.Printf("%-20s: %0.2f °C\n", "Water", room.Rootzone.Temp)
+		ids, _ := room.IntelliDoses()
+		if len(ids) > 0 {
+			fmt.Printf("%20s: %0.2f mS/cm²\n", "Nutrient", room.Rootzone.EC)
+			fmt.Printf("%20s: %0.2f pH\n", "Acidity", room.Rootzone.PH)
+			fmt.Printf("%20s: %0.2f °C\n", "Water", room.Rootzone.Temp)
 		}
-
 	}
 }
 
