@@ -7,7 +7,9 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
-	"path"
+	"net/url"
+	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 )
@@ -17,7 +19,7 @@ const (
 
 	igTokenURI       = igBaseURL + "/auth/token"
 	igRefreshURI     = igBaseURL + "/auth/token/refresh"
-	igDeviceURI      = igBaseURL + "/intelligrow/devices?username="
+	igDeviceURI      = "/intelligrow/devices?username="
 	igDevicesURI     = igBaseURL + "/intelligrow/devices"
 	igDeviceStateURI = igBaseURL + "/intelligrow/devices/state?device="
 	igMetricsURI     = igBaseURL + "/intelligrow/devices/metrics?device="
@@ -36,6 +38,7 @@ type Client struct {
 	growrooms          map[string]*Growroom
 	devices            *Devices
 	tokenRefresherQuit chan bool
+	url                url.URL
 }
 
 // NewClient creates a new client with the given username and password.  It will
@@ -48,6 +51,9 @@ func NewClient(user, pass string) (*Client, error) {
 		password:  pass,
 		growrooms: make(map[string]*Growroom),
 	}
+
+	c.url.Scheme = "https"
+	c.url.Host = "api.autogrow.com"
 
 	// Initialize the devices object in the structure, this is blank object
 	c.devices = NewDevices()
@@ -221,7 +227,7 @@ func (c *Client) GetDevices() error {
 	return c.RefreshDevices()
 }
 
-
+// SaveDeviceState will save the config and state of the given device
 func (c *Client) SaveDeviceState(i Intelli) error {
 	payload, err := i.StatePayload()
 	if err != nil {
@@ -233,7 +239,7 @@ func (c *Client) SaveDeviceState(i Intelli) error {
 		return err
 	}
 
-	res, err := c.doRequest("PUT", "state", bytes.NewBuffer(data))
+	res, err := c.doRequest("PUT", c.buildURL("state"), bytes.NewBuffer(data))
 	if err != nil {
 		return fmt.Errorf("failed to save state/config: %s", err)
 	}
@@ -245,8 +251,8 @@ func (c *Client) SaveDeviceState(i Intelli) error {
 	return nil
 }
 
-func (c *Client) doRequest(method, uri string, body io.Reader) (*http.Response, error) {
-	req, err := http.NewRequest(method, path.Join(igBaseURL, uri), body)
+func (c *Client) doRequest(method, url string, body io.Reader) (*http.Response, error) {
+	req, err := http.NewRequest(method, url, body)
 	if err != nil {
 		return nil, err
 	}
@@ -257,9 +263,16 @@ func (c *Client) doRequest(method, uri string, body io.Reader) (*http.Response, 
 	return c.Do(req)
 }
 
+func (c *Client) buildURL(path string, queries ...string) string {
+	u := c.url
+	u.Path = filepath.Join("v1", path)
+	u.RawQuery = strings.Join(queries, "&")
+	return u.String()
+}
+
 // RefreshDevices will get the latest data from the API and update all known structs
 func (c *Client) RefreshDevices() error {
-	res, err := c.doRequest("GET", igDeviceURI+c.username, nil)
+	res, err := c.doRequest("GET", c.buildURL("/intelligrow/devices", "username="+c.username), nil)
 	if err != nil {
 		return fmt.Errorf("failed to refresh devices; %s", err)
 	}
