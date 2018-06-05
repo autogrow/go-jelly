@@ -227,8 +227,8 @@ func (c *Client) GetDevices() error {
 	return c.RefreshDevices()
 }
 
-// SaveDeviceState will save the config and state of the given device
-func (c *Client) SaveDeviceState(i Intelli) error {
+// SaveDevice will save the config and state of the given device
+func (c *Client) SaveDevice(i Intelli) error {
 	payload, err := i.StatePayload()
 	if err != nil {
 		return err
@@ -239,7 +239,7 @@ func (c *Client) SaveDeviceState(i Intelli) error {
 		return err
 	}
 
-	res, err := c.doRequest("PUT", c.buildURL("/intelligrow/devices/state"), bytes.NewBuffer(data))
+	res, err := c.doRequest("PUT", c.buildURL("/intelligrow/devices"), bytes.NewBuffer(data))
 	if err != nil {
 		return fmt.Errorf("failed to save state/config: %s", err)
 	}

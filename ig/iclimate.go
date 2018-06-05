@@ -41,7 +41,7 @@ func NewIntelliClimate(dev *Device) *IntelliClimate {
 
 // SaveConfigState will save the config and state
 func (ic *IntelliClimate) SaveConfigState() error {
-	return ic.client.SaveDeviceState(ic)
+	return ic.client.SaveDevice(ic)
 }
 
 // getEndpoint the device by quering the endpoint passed in

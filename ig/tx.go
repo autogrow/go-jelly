@@ -55,7 +55,7 @@ func (ic *IntelliClimate) Transaction(runner func() error) error {
 		return err
 	}
 
-	return ic.client.SaveDeviceState(ic)
+	return ic.client.SaveDevice(ic)
 }
 
 // Transaction allows multiple changes to be modified and pushed in one API request
@@ -89,5 +89,5 @@ func (id *IntelliDose) Transaction(runner func() error) error {
 		return err
 	}
 
-	return id.client.SaveDeviceState(id)
+	return id.client.SaveDevice(id)
 }

@@ -198,7 +198,7 @@ func (id *IntelliDose) GetHistory(to, from time.Time, points int) error {
 
 // SaveConfigState will save the config and state
 func (id *IntelliDose) SaveConfigState() error {
-	return id.client.SaveDeviceState(id)
+	return id.client.SaveDevice(id)
 }
 
 // StatePayload builds and returns the state payload for updating a devices state or config
