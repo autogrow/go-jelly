@@ -41,6 +41,8 @@ if err != nil {
     panic(err)
 }
 
+fmt.Println("Water is currently %0.2f EC and %0.2f pH", doser.Metrics.Ec, doser.Metrics.PH)
+
 // Immediate push to the API
 if err := doser.ForceIrrigation(); err != nil {
     panic(err)
