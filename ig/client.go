@@ -239,13 +239,13 @@ func (c *Client) SaveDeviceState(i Intelli) error {
 		return err
 	}
 
-	res, err := c.doRequest("PUT", c.buildURL("state"), bytes.NewBuffer(data))
+	res, err := c.doRequest("PUT", c.buildURL("/intelligrow/devices/state"), bytes.NewBuffer(data))
 	if err != nil {
 		return fmt.Errorf("failed to save state/config: %s", err)
 	}
 
 	if res.StatusCode != 200 {
-		return fmt.Errorf("unexpected http status: %s", res.StatusCode)
+		return fmt.Errorf("unexpected http status: %d", res.StatusCode)
 	}
 
 	return nil
