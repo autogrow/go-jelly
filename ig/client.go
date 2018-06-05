@@ -38,11 +38,8 @@ type Client struct {
 	tokenRefresherQuit chan bool
 }
 
-// NewClient - Return a new IGClient object as well as any errors detected
-// The function takes three inputs
-// First - Intelligrow username as a string
-// Second - Intelligrow Password as a string
-// The Function will return a new client object with the appropriate tokens as well as any error encountered.
+// NewClient creates a new client with the given username and password.  It will
+// return an error if the authentication fails
 func NewClient(user, pass string) (*Client, error) {
 	c := &Client{
 		Client:    &http.Client{Timeout: time.Second * 30},

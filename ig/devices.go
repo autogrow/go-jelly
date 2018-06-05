@@ -15,6 +15,7 @@ const (
 	StateEP = "state"
 )
 
+// Intelli is a generic interface that both IntelliDose and IntelliClimate can adhere to
 type Intelli interface {
 	StatePayload() (interface{}, error)
 	GetID() string
