@@ -24,7 +24,7 @@ func main() {
 	flag.BoolVar(&listDevices, "l", false, "list known devices")
 	flag.BoolVar(&listGrowrooms, "g", false, "list growrooms")
 	flag.StringVar(&id, "id", "", "serial number to work with")
-	flag.StringVar(&gr, "gr", "", "growroom name to work with")
+	flag.StringVar(&gr, "growroom", "", "growroom name to work with")
 	flag.BoolVar(&printReadings, "r", false, "print readings")
 	flag.BoolVar(&fmtJSON, "json", false, "format as JSON")
 	flag.Parse()
@@ -41,6 +41,8 @@ func main() {
 		log.Fatalf("failed to create IG client: %s", err)
 	}
 
+	app := &app{cl}
+
 	switch {
 	case listGrowrooms:
 		fmt.Println("Growrooms:")
@@ -49,70 +51,25 @@ func main() {
 		}
 
 	case listDevices:
-		fmt.Printf("%-12s %-18s %-10s %s\n", "Type", "ID", "Name", "Growroom")
-		for _, d := range cl.Devices() {
-			fmt.Printf("%-12s %-18s %-10s %s\n", d.Type, d.ID, d.DeviceName, d.Growroom)
+		if err := app.printDevices(); err != nil {
+			log.Fatalf("%s", err)
+		}
+
+	case id != "" && fmtJSON:
+		if err := app.dumpJSON(id); err != nil {
+			log.Fatalf("%s", err)
 		}
 
 	case id != "":
-		if doser, errd := cl.IntelliDose(id); errd == nil {
-			switch {
-			case printReadings:
-				_ = doser.GetMetrics()
-				fmt.Printf("%20s: %0.2f mS/cm²\n", "Nutrient", doser.Metrics.Ec)
-				fmt.Printf("%20s: %0.2f pH\n", "Acidity", doser.Metrics.PH)
-				fmt.Printf("%20s: %0.2f °C\n", "Water", doser.Metrics.NutTemp)
-				return
-			case fmtJSON:
-				if err := doser.GetAll(); err != nil {
-					log.Fatalf("failed to get the doser data: %s", err)
-				}
-				dumpJSON(doser)
-				return
-			}
+		if err := app.printDeviceMetrics(id); err != nil {
+			log.Fatalf("%s", err)
 		}
 
-		if clim, errc := cl.IntelliClimate(id); errc == nil {
-			switch {
-			case printReadings:
-				_ = clim.GetMetrics()
-				fmt.Printf("%20s: %0.2f °C\n", "Air", clim.Metrics.AirTemp)
-				fmt.Printf("%20s: %0.2f %%H\n", "RH", clim.Metrics.Rh)
-				fmt.Printf("%20s: %0.2f kPa\n", "VPD", clim.Metrics.Vpd)
-				fmt.Printf("%20s: %0.2f ppm\n", "CO2", clim.Metrics.Co2)
-				return
-			case fmtJSON:
-				if err := clim.GetAll(); err != nil {
-					log.Fatalf("failed to get the climate data: %s", err)
-				}
-				dumpJSON(clim)
-				return
-			}
+	case gr != "":
+		if err := app.printGrowroomMetrics(gr); err != nil {
+			log.Fatalf("%s", err)
 		}
 
-		log.Fatalf("no device found with serial %s", id)
-
-	case gr != "" && printReadings:
-		room, ok := cl.Growroom(gr)
-
-		if !ok {
-			log.Fatalf("Growroom %s not found", gr)
-		}
-
-		ics, _ := room.IntelliClimates()
-		if len(ics) > 0 {
-			fmt.Printf("%20s: %0.2f °C\n", "Air", room.Climate.AirTemp)
-			fmt.Printf("%20s: %0.2f %%H\n", "RH", room.Climate.RH)
-			fmt.Printf("%20s: %0.2f kPa\n", "VPD", room.Climate.VPD)
-			fmt.Printf("%20s: %0.2f ppm\n", "CO2", room.Climate.CO2)
-		}
-
-		ids, _ := room.IntelliDoses()
-		if len(ids) > 0 {
-			fmt.Printf("%20s: %0.2f mS/cm²\n", "Nutrient", room.Rootzone.EC)
-			fmt.Printf("%20s: %0.2f pH\n", "Acidity", room.Rootzone.PH)
-			fmt.Printf("%20s: %0.2f °C\n", "Water", room.Rootzone.Temp)
-		}
 	}
 }
 
@@ -157,4 +114,88 @@ func dumpJSON(v interface{}) {
 	}
 
 	fmt.Println(string(data))
+}
+
+type app struct {
+	cl *ig.Client
+}
+
+func (a *app) printGrowroomMetrics(gr string) error {
+	room, ok := a.cl.Growroom(gr)
+	if !ok {
+		return fmt.Errorf("Growroom %s not found", gr)
+	}
+
+	ics, _ := room.IntelliClimates()
+	if len(ics) > 0 {
+		fmt.Printf("%20s: %0.2f °C\n", "Air", room.Climate.AirTemp)
+		fmt.Printf("%20s: %0.2f %%H\n", "RH", room.Climate.RH)
+		fmt.Printf("%20s: %0.2f kPa\n", "VPD", room.Climate.VPD)
+		fmt.Printf("%20s: %0.2f ppm\n", "CO2", room.Climate.CO2)
+	}
+
+	ids, _ := room.IntelliDoses()
+	if len(ids) > 0 {
+		fmt.Printf("%20s: %0.2f mS/cm²\n", "Nutrient", room.Rootzone.EC)
+		fmt.Printf("%20s: %0.2f pH\n", "Acidity", room.Rootzone.PH)
+		fmt.Printf("%20s: %0.2f °C\n", "Water", room.Rootzone.Temp)
+	}
+
+	return nil
+}
+
+func (a *app) printDeviceMetrics(id string) error {
+	if doser, err := a.cl.IntelliDose(id); err == nil {
+		if err = doser.GetMetrics(); err != nil {
+			return err
+		}
+
+		fmt.Printf("%20s: %0.2f mS/cm²\n", "Nutrient", doser.Metrics.Ec)
+		fmt.Printf("%20s: %0.2f pH\n", "Acidity", doser.Metrics.PH)
+		fmt.Printf("%20s: %0.2f °C\n", "Water", doser.Metrics.NutTemp)
+		return nil
+	}
+
+	if clim, err := a.cl.IntelliClimate(id); err == nil {
+		if err = clim.GetMetrics(); err != nil {
+			return err
+		}
+
+		fmt.Println("IntelliClimate: %d")
+		fmt.Printf("%20s: %0.2f °C\n", "Air", clim.Metrics.AirTemp)
+		fmt.Printf("%20s: %0.2f %%H\n", "RH", clim.Metrics.Rh)
+		fmt.Printf("%20s: %0.2f kPa\n", "VPD", clim.Metrics.Vpd)
+		fmt.Printf("%20s: %0.2f ppm\n", "CO2", clim.Metrics.Co2)
+		return nil
+	}
+
+	return fmt.Errorf("no device found with serial %s", id)
+}
+
+func (a *app) dumpJSON(id string) error {
+	var intelli ig.Intelli
+	var err error
+
+	intelli, err = a.cl.IntelliDose(id)
+	if err != nil {
+		intelli, err = a.cl.IntelliClimate(id)
+		if err != nil {
+			return fmt.Errorf("cannot find device with serial/name of %s", id)
+		}
+	}
+
+	if err := intelli.GetAll(); err != nil {
+		return fmt.Errorf("failed to get device data: %s", err)
+	}
+
+	dumpJSON(intelli)
+	return nil
+}
+
+func (a *app) printDevices() error {
+	fmt.Printf("%-12s %-18s %-10s %s\n", "Type", "ID", "Name", "Growroom")
+	for _, d := range a.cl.Devices() {
+		fmt.Printf("%-12s %-18s %-10s %s\n", d.Type, d.ID, d.DeviceName, d.Growroom)
+	}
+	return nil
 }

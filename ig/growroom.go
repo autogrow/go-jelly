@@ -107,6 +107,18 @@ func (g *Growroom) IntelliDose(nameOrID string) (*IntelliDose, error) {
 	return id, nil
 }
 
+// HasIntelliDose will return true if the growroom has one of more IntelliDose devices
+func (g *Growroom) HasIntelliDose() bool {
+	devs, _ := g.IntelliDoses()
+	return len(devs) > 0
+}
+
+// HasIntelliClimate will return true if the growroom has one of more IntelliClimate devices
+func (g *Growroom) HasIntelliClimate() bool {
+	devs, _ := g.IntelliClimates()
+	return len(devs) > 0
+}
+
 // IntelliDoses will return all known IntelliDoses
 func (g *Growroom) IntelliDoses() ([]*IntelliDose, error) {
 	return g.devices.Dosers(), nil

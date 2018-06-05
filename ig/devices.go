@@ -19,6 +19,7 @@ const (
 type Intelli interface {
 	StatePayload() (interface{}, error)
 	GetID() string
+	GetAll() error
 }
 
 // Devices - object that contains a slice of intellidosers and intelliclimates
