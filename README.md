@@ -16,8 +16,6 @@ Install as you would any go library:
 
 ### IntelliGrow
 
-[![](http://img.shields.io/badge/godoc-reference-5272B4.svg?style=flat-square)](https://godoc.org/github.com/AutogrowSystems/go-jelly/ig)
-
 IntelliDoses and IntelliClimates are supported via the IntelliGrow API when used in conjuction with an IntelliLink.
 
 ```go
@@ -38,18 +36,31 @@ for _, d := range devices {
     fmt.Printf("%-12s %-18s %-20s %s", d.Type, d.ID, d.DeviceName, d.Growroom)
 }
 
-doser, err := client.GetIntelliDoseByName("ASLID17081149")
+doser, err := client.IntelliDose("ASLID17081149")
 if err != nil {
     panic(err)
 }
 
-if doser.ForceIrrigation() {
-    err := doser.UpdateState()
-    if err != nil {
-        panic(err)
-    }
+// Immediate push to the API
+if err := doser.ForceIrrigation(); err != nil {
+    panic(err)
+}
+
+// Push all the changes to the API at once
+err := doser.Transaction(func() error) {
+    doser.ForceIrrigation()  // no errors returned in this mode
+    doser.ForcePHDose()
+    doser.ForceNutrientDose()
+    return nil
+})
+
+if err != nil {
+    panic(err)
 }
 ```
+
+You can also find a basic CLI client implementation in **cmd/ig**.
+
 
 ### Multigrow
 
@@ -57,7 +68,7 @@ Coming soon!
 
 ### go-intelli
 
-Currently the IntelliDose is supported when used in combination with the [go-intelli](https://github.com/AutogrowSystems/go-intelli) gateway for event driven readings.
+Currently the IntelliDose is supported when used in combination with the [go-intelli](https://github.com/AutogrowSystems/go-intelli) gateway for event driven readings over the local network.
 
 ```go
 import "github.com/AutogrowSystems/go-jelly/sfc"
@@ -81,5 +92,5 @@ for {
 
 You can see some usage examples in this repo:
 
-- **examples/daynightonoff.go**: send a push notification when an IntelliDose transitions from day to night (or vice versa)
-- **examples/printreadings.go**: print readings to the terminal every time they change
+- **sfc/examples/daynightonoff.go**: send a push notification when an IntelliDose transitions from day to night (or vice versa)
+- **sfc/examples/printreadings.go**: print readings to the terminal every time they change
