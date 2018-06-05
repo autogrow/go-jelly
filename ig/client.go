@@ -76,122 +76,6 @@ func (c *Client) Close() error {
 	return nil
 }
 
-// GetToken - updates the token using an existing client
-func (c *Client) authenticate() error {
-	data, err := json.Marshal(map[string]string{"username": c.username, "password": c.password})
-	if err != nil {
-		return err
-	}
-	req, err := http.NewRequest("POST", igTokenURI, bytes.NewBuffer(data))
-	if err != nil {
-		return fmt.Errorf("Unable to get tokens %s", err)
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-
-	res, err := c.Do(req)
-	if err != nil {
-		return fmt.Errorf("Unable to get tokens %s", err)
-	}
-
-	return c.processAuthResponse(res)
-}
-
-// Token returns the current token for the client
-func (c *Client) getToken() string {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	return c.auth.Token
-}
-
-type authResponse struct {
-	Token        string  `json:"api_access_token"`
-	ExpiresIn    float64 `json:"expires_in"`
-	RefreshToken string  `json:"refresh_token"`
-}
-
-func (auth authResponse) reauthPayload(user string) io.Reader {
-	data, _ := json.Marshal(map[string]string{"username": user, "refresh_token": auth.RefreshToken})
-	return bytes.NewBuffer(data)
-}
-
-func (auth authResponse) validate() error {
-	if auth.Token == "" {
-		return fmt.Errorf("Response from server doesn't contain an api token")
-	}
-
-	if auth.ExpiresIn == 0 {
-		return fmt.Errorf("Response from server doesn't contain a refresh time")
-	}
-
-	if auth.RefreshToken == "" {
-		return fmt.Errorf("Response from server doesn't contain a refresh token")
-	}
-
-	return nil
-}
-
-func (c *Client) processAuthResponse(res *http.Response) error {
-	auth := authResponse{}
-	data, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		return fmt.Errorf("couldn't read response body: %s", err)
-	}
-
-	err = json.Unmarshal(data, &auth)
-	if err != nil {
-		return fmt.Errorf("couldn't unmarshal response body: %s", err)
-	}
-
-	if err := auth.validate(); err != nil {
-		return err
-	}
-
-	c.auth = auth
-	return nil
-}
-
-func (c *Client) extendAuth() error {
-	req, err := http.NewRequest("POST", igRefreshURI, c.auth.reauthPayload(c.username))
-	if err != nil {
-		return err
-	}
-
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
-	res, err := c.Do(req)
-	if err != nil {
-		return err
-	}
-
-	err = c.processAuthResponse(res)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (c *Client) autoAuthExtender() {
-	c.tokenRefresherQuit = make(chan bool)
-	defer func() { c.tokenRefresherQuit = nil }()
-	timer := time.NewTimer(c.getRefreshTime())
-
-	for {
-		select {
-		case <-c.tokenRefresherQuit:
-			return
-
-		case <-timer.C:
-			if err := c.extendAuth(); err != nil {
-				// TODO: handle err
-			}
-
-			timer.Reset(c.getRefreshTime())
-		}
-	}
-}
-
 // AutoUpdater - automatically updates the device connected to the client
 func (c *Client) AutoUpdater(pollInterval int, quit chan bool, updateInterval chan int) {
 	ticker := time.NewTicker(time.Duration(pollInterval) * time.Second)
@@ -214,17 +98,23 @@ func (c *Client) AutoUpdater(pollInterval int, quit chan bool, updateInterval ch
 	}
 }
 
-func (c *Client) getRefreshTime() time.Duration {
-	rTime := c.auth.ExpiresIn
-	if rTime > 60 {
-		rTime -= 60
-	}
-	return time.Duration(rTime)
+func (c *Client) buildURL(path string, queries ...string) string {
+	u := c.url
+	u.Path = filepath.Join("v1", path)
+	u.RawQuery = strings.Join(queries, "&")
+	return u.String()
 }
 
-// GetDevices is deprecated in favour of RefreshDevices
-func (c *Client) GetDevices() error {
-	return c.RefreshDevices()
+func (c *Client) doRequest(method, url string, body io.Reader) (*http.Response, error) {
+	req, err := http.NewRequest(method, url, body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", c.getToken())
+
+	return c.Do(req)
 }
 
 // SaveDevice will save the config and state of the given device
@@ -251,23 +141,9 @@ func (c *Client) SaveDevice(i Intelli) error {
 	return nil
 }
 
-func (c *Client) doRequest(method, url string, body io.Reader) (*http.Response, error) {
-	req, err := http.NewRequest(method, url, body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", c.getToken())
-
-	return c.Do(req)
-}
-
-func (c *Client) buildURL(path string, queries ...string) string {
-	u := c.url
-	u.Path = filepath.Join("v1", path)
-	u.RawQuery = strings.Join(queries, "&")
-	return u.String()
+// GetDevices is deprecated in favour of RefreshDevices
+func (c *Client) GetDevices() error {
+	return c.RefreshDevices()
 }
 
 // RefreshDevices will get the latest data from the API and update all known structs
@@ -397,15 +273,6 @@ func (c *Client) Devices() []*Device {
 	return devs
 }
 
-// Growrooms returns a slice of all the known growrooms
-func (c *Client) Growrooms() []*Growroom {
-	grs := []*Growroom{}
-	for _, gr := range grs {
-		grs = append(grs, gr)
-	}
-	return grs
-}
-
 // ListDevicesBySerial will return the serial numbers of all known devices
 func (c *Client) ListDevicesBySerial() []string {
 	if len(c.growrooms) == 0 {
@@ -487,4 +354,13 @@ func (c *Client) GetGrowroomReading(gr, reading string) (string, error) {
 	}
 
 	return r, nil
+}
+
+// Growrooms returns a slice of all the known growrooms
+func (c *Client) Growrooms() []*Growroom {
+	grs := []*Growroom{}
+	for _, gr := range grs {
+		grs = append(grs, gr)
+	}
+	return grs
 }
